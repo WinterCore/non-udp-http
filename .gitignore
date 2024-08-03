@@ -1,0 +1,6 @@
+Server
+.DS_Store
+*.o
+.cache
+*.dSYM
+compile_commands.json
