@@ -1,78 +1,116 @@
-#include <stdio.h>
-#include <netinet/in.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <inttypes.h>
 
-#include "./helpers.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include "helpers.h"
+#include "hector.h"
+
+#define PORT 6969
+#define MAX_CONNECTIONS 1
 
 int main() {
+    Hector hector = hector_create(sizeof(float));
+    hector_push(&hector, (float[]) { 0.5f });
+    printf("Capacity after push: %zu\n\n", hector.capacity);
+    hector_pop(&hector);
+    printf("Capacity after shrink: %zu\n\n", hector.capacity);
+    hector_push(&hector, (float[]) { 0.5f });
+    printf("Capacity after 2nd push: %zu\n\n", hector.capacity);
 
-    struct sockaddr_in server_sockaddr_in;
-
-    server_sockaddr_in.sin_family = AF_INET;
-    server_sockaddr_in.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    const int port = 6969;
-
-    server_sockaddr_in.sin_port = htons(port);
-
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    int optval = 1;
-
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) != 0) {
-        PANIC("Failed to set socket opt");
+    size_t len = hector_len(&hector);
+    printf("Len: %zu\n\n", len);
+    for (size_t i = 0; i < len; i += 1) {
+        printf("Elem(%zu): %f\n", i, *((float *) hector_get(&hector, i)));
     }
 
-    int bind_result = bind(fd, (struct sockaddr *) &server_sockaddr_in, sizeof(server_sockaddr_in));
+    PANIC("END");
 
-    if (bind_result != 0) {
-        PANIC("Failed to bind");
+
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (server_fd == -1) {
+        perror("Failed to create socket");
+        exit(EXIT_FAILURE);
     }
 
-    int listen_result = listen(fd, 10);
+    printf("Socket created successfully!\n");
 
-    if (listen_result != 0) {
-        PANIC("Failed to listen");
+    
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &(int []) {1}, sizeof(int)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        exit(EXIT_FAILURE);
     }
 
-    DEBUG_PRINT("SERVER is up and running...\n");
+    struct sockaddr_in server_addr = {0};
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+    
+
+    int bind_result = bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
+
+    if (bind_result == -1) {
+        perror("Failed to bind socket");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Socket bound successfully!\n");
+
+    int listen_result = listen(server_fd, MAX_CONNECTIONS);
+
+    if (listen_result == -1) {
+        perror("Failed to listen!");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server is running port %d!\n\n", PORT);
+
 
     while (true) {
-        struct sockaddr_in client_sockaddr_in;
-        socklen_t len = sizeof(client_sockaddr_in);
+        struct sockaddr_in client_addr = {0};
+        socklen_t len = sizeof(client_addr);
 
-        int client_fd = accept(
-            fd,
-            (struct sockaddr *) &client_sockaddr_in,
-            &len
-        );
+        int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, &len);
 
-        DEBUG_PRINTF("CLIENT CONNECTED!\n\tIP: %s:%" PRIu16, inet_ntoa(client_sockaddr_in.sin_addr), client_sockaddr_in.sin_port);
-
-        uint8_t buffer[4000] = {0};
-
-
-        ssize_t bytes_read;
-
-        do {
-            bytes_read = read(client_fd, buffer, sizeof(buffer));
-            buffer[bytes_read] = '\0';
-
-            DEBUG_PRINTF("DATA RECEIVED(%zd): %s", bytes_read, buffer);
-        } while (bytes_read > 0);
-
-        if (bytes_read == 0) {
-            DEBUG_PRINT("CLIENT DISCONNECTED");
+        if (client_fd == -1) {
+            perror("Failed to accept client!\n");
+            continue;
         }
 
-        if (bytes_read == -1) {
-            perror("Failed to read from client");
+        printf("Client connected successfully!\n");
+
+        while (true) {
+            uint8_t buffer[5000];
+            ssize_t bytes_count = recv(client_fd, buffer, sizeof(buffer), 0);
+
+            if (bytes_count == -1) {
+                perror("Failed to receive data from client\n");
+                continue;
+            }
+
+            if (bytes_count == 0) {
+                printf("Client has disconnected!\n");
+                break;
+            }
+
+            buffer[bytes_count] = '\0';
+
+            printf("Received data: %s", buffer);
+
+            int resp_len = sprintf((char *) buffer, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nabc");
+
+            int send_result = send(client_fd, buffer, resp_len, 0);
+
+            if (send_result == -1) {
+                perror("Failed to send data to client");
+                break;
+            }
         }
     }
 
     return 0;
 }
+
