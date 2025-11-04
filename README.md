@@ -4,3 +4,10 @@
 
 <br />
 <br />
+
+
+## TODO:
+### Day 1
+1. Implement a basic TCP server that listens for incoming HTTP requests.
+2. Reply with a basic HTTP response (e.g., "Hello, World!").
+
