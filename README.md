@@ -11,3 +11,5 @@
 1. Implement a basic TCP server that listens for incoming HTTP requests.
 2. Reply with a basic HTTP response (e.g., "Hello, World!").
 
+### Day 2
+1. Parse HTTP GET requests and extract the requested resource path.

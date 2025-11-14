@@ -2,14 +2,42 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/unistd.h>
+#include <unistd.h>
+
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <string.h>
+
+#include "connection.h"
+#include "aids.h"
+#include "arena.h"
+#include "request.h"
 
 #define PORT 6969
 #define BACKLOG_SIZE 10
 
 int main() {
+
+    /*
+    int fd = open("./http_request.bin", O_RDONLY);
+
+    if (!fd) {
+        perror("open");
+        return 1;
+    }
+
+    FDBufferReader reader = fd_buffer_reader_create(fd);
+    
+    uint8_t buff[100000] = {0};
+
+    int n = fd_buffer_reader_read_until(&reader, buff, "fhajklsdfhlk", sizeof(buff));
+
+    DEBUG_PRINT("Read %d bytes:\n", n);
+    DEBUG_PRINT("%.*s\n", n, buff);
+    PANIC("TESTING");
+
+    */
+
     int server_fd;
     struct sockaddr_in server_addr;
 
@@ -21,6 +49,11 @@ int main() {
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
+
+    int opt = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+    }
 
     // bind socket to port
     if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -35,11 +68,13 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Server listening on port %d\n", PORT);
+    DEBUG_PRINT("Server listening on port %d\n", PORT);
 
-    char buffer[1024];
-    
+    uint8_t buffer[80000];
+
     while (1) {
+        Arena *arena = arena_create();
+
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
         int client_fd = -1;
@@ -49,11 +84,21 @@ int main() {
             continue;
         }
 
-        printf("Accepted connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+        DEBUG_PRINT("Accepted connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+        HttpConnection connection = create_http_connection(
+            arena,
+            client_fd,
+            client_addr.sin_addr.s_addr,
+            client_addr.sin_port
+        );
+
+        // Read HTTP request (not fully implemented)
+        HttpRequestParseStatus request = parse_http_request(&connection, NULL);
 
         const char *welcome_msg = "Hello from server!\n";
         
-        int bytes_written = sprintf(buffer, "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n\r\n%s", strlen(welcome_msg), welcome_msg);
+        int bytes_written = sprintf((char *) buffer, "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n\r\n%s", strlen(welcome_msg), welcome_msg);
 
         if (send(client_fd, buffer, bytes_written, 0) < 0) {
             perror("send failed");

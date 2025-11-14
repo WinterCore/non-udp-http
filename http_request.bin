@@ -1,0 +1,8 @@
+POST /example/path HTTP/1.1
+Host: www.example.com
+User-Agent: SimpleClient/1.0
+Content-Type: text/plain
+X-Custom-Header: abcdefghijklmnopqrstuvwxyz
+Content-Length: 11
+
+Hello world
