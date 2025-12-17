@@ -6,7 +6,7 @@
 #include "aids.h"
 #include "arena.h"
 #include "buffer.h"
-#include "string.h"
+#include "earring.h"
 
 // The real limit is 8192 - strlen("\r\n") because the buffer reader copies the delimiter too but doesn't count it
 #define MAX_STATUS_LINE_LENGTH 8192
@@ -205,6 +205,9 @@ HttpRequest create_http_request(Arena *arena) {
     return request;
 }
 
+/**
+ * Splits the request target into pathname and query string.
+ */
 void read_pathname_and_query_string(
     Arena *arena, 
     const char *request_target,
@@ -217,8 +220,8 @@ void read_pathname_and_query_string(
     if (query_start == NULL) {
         // No query string
         *out_pathname = arena_alloc(arena, request_target_len + 1);
-        strncpy(*out_pathname, request_target, request_target_len + 1);
-        *out_pathname[request_target_len] = '\0';
+        strncpy(*out_pathname, request_target, request_target_len);
+        (*out_pathname)[request_target_len] = '\0';
 
         *out_query_string = NULL;
 
@@ -236,6 +239,65 @@ void read_pathname_and_query_string(
 
     strncpy(*out_query_string, query_start + 1, query_string_len);
     (*out_query_string)[query_string_len] = '\0';
+}
+
+/**
+ * Parses the query string into key-value pairs.
+ */
+void parse_http_query_string(Arena *arena, const char *query_string, HttpQueryParams *out_params) {
+    if (query_string == NULL) {
+        return;
+    }
+
+    size_t query_string_len = strlen(query_string);
+
+    size_t i = 0;
+
+    // TODO: Make sure to check for the limit of MAX_QUERY_PARAMS
+
+    while (i < query_string_len) {
+        // Find key
+        size_t key_start = i;
+        size_t key_len = 0;
+
+
+        // TODO: Check for illegal characters in key & value
+
+        while (i < query_string_len && query_string[i] != '=' && query_string[i] != '&') {
+            i += 1;
+            key_len += 1;
+        }
+
+        // Consume '='
+        while (i < query_string_len && query_string[i] == '=') {
+            // There should be only one '=' but we tolerate multiple '=' for robustness
+            i += 1;
+        }
+
+        size_t value_start = i;
+        size_t value_len = 0;
+        
+        while (i < query_string_len && query_string[i] != '&') {
+            i += 1;
+            value_len += 1;
+        }
+
+        // Add key-value pair
+        http_query_params_add(
+            arena,
+            out_params,
+            key_len > 0 ? &query_string[key_start] : NULL,
+            key_len,
+            value_len > 0 ? &query_string[value_start] : NULL,
+            value_len
+        );
+
+        // Consume '&'
+        while (i < query_string_len && query_string[i] == '&') {
+            // There should be only one '&' but we tolerate multiple '&' for robustness
+            i += 1;
+        }
+    }
 }
 
 
@@ -267,7 +329,7 @@ HttpRequestParseResult parse_http_request(HttpConnection *connection, HttpReques
         &out_request->query_string
     );
 
-    http_query_string_parse(connection->arena, out_request->query_string, &out_request->query_params);
+    parse_http_query_string(connection->arena, out_request->query_string, &out_request->query_params);
 
     return HTTP_PARSE_OK;
 }
@@ -337,21 +399,38 @@ bool http_headers_iter(HttpHeaders *headers, size_t *index, char **out_key, char
     return true;
 }
 
-int http_query_string_parse(Arena *arena, const char *query_string, HttpQueryParams *out_params) {
-}
-
-int http_query_params_add(Arena *arena, HttpQueryParams *params, const char *key, const char *value) {
+/**
+ * Adds a key-value pair to the query parameters.
+ * If key or value is NULL, it represents an empty key or value respectively.
+ *
+ * TODO: Parse and decode percent-encoded characters, and maybe discard illegal characters.
+ */
+int http_query_params_add(
+    Arena *arena,
+    HttpQueryParams *params,
+    const char *key,
+    size_t key_len,
+    const char *value,
+    size_t value_len
+) {
     if (params->len >= MAX_QUERY_PARAMS) {
         return -1;
     }
 
     int index = params->len;
 
-    Earring *key_er = string_create(arena, strlen(key));
-    string_set(key_er, key, strlen(key));
+    Earring *key_er = NULL;
+    Earring *value_er = NULL;
 
-    Earring *value_er = string_create(arena, strlen(value));
-    string_set(value_er, value, strlen(value));
+    if (key != NULL) {
+        key_er = earring_create(arena, key_len);
+        earring_set(key_er, key, key_len);
+    }
+
+    if (value != NULL) {
+        value_er = earring_create(arena, value_len);
+        earring_set(value_er, value, value_len);
+    }
 
     params->keys[index] = key_er;
     params->values[index] = value_er;

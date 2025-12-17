@@ -1,7 +1,7 @@
 #ifndef REQUEST_H
 #define REQUEST_H
 #include "connection.h"
-#include "string.h"
+#include "earring.h"
 
 typedef enum HttpRequestParseResult {
     HTTP_PARSE_OK = 0,
@@ -39,9 +39,17 @@ typedef struct HttpQueryParams {
     Earring **values;
 } HttpQueryParams;
 
-int http_query_string_parse(Arena *arena, const char *query_string, HttpQueryParams *out_params);
+// TODO: Return parse result
+void parse_http_query_string(Arena *arena, const char *query_string, HttpQueryParams *out_params);
 
-int http_query_params_add(Arena *arena, HttpQueryParams *params, const char *key, const char *value);
+int http_query_params_add(
+    Arena *arena,
+    HttpQueryParams *params,
+    const char *key,
+    size_t key_len,
+    const char *value,
+    size_t value_len
+);
 int http_query_params_clear(Arena *arena, HttpQueryParams *params);
 int http_query_params_delete(Arena *arena, HttpQueryParams *params, const char *key, const char *value);
 

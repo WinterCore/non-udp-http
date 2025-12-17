@@ -12,12 +12,12 @@
 #include "aids.h"
 #include "arena.h"
 #include "request.h"
+#include "earring.h"
 
 #define PORT 6969
 #define BACKLOG_SIZE 10
 
 int main() {
-
     int fd = open("./http_request.bin", O_RDONLY);
 
     if (!fd) {
@@ -46,11 +46,28 @@ int main() {
     DEBUG_PRINT("Pathname: %s\n", out_request.pathname);
     DEBUG_PRINT("Query string: %s\n", out_request.query_string);
     DEBUG_PRINT("Version: %s\n", out_request.http_version);
-    for (size_t i = 0; i < out_request.headers.len; i++) {
-        DEBUG_PRINT("Header: %s: %s\n", out_request.headers.keys[i], out_request.headers.values[i]);
-    }
     
-    PANIC("\n\n");
+
+    DEBUG_PRINT("\n\n");
+    DEBUG_PRINT("Query Params: \n");
+    // Print query params
+    for (size_t i = 0; i < out_request.query_params.len; i++) {
+        DEBUG_PRINT("\t");
+        earring_write(stderr, out_request.query_params.keys[i]);
+        DEBUG_PRINT(" = ");
+        earring_write(stderr, out_request.query_params.values[i]);
+        DEBUG_PRINT("\n");
+    }
+
+    DEBUG_PRINT("\n\n");
+    DEBUG_PRINT("Headers: \n");
+    for (size_t i = 0; i < out_request.headers.len; i++) {
+        DEBUG_PRINT("\t%s: %s\n", out_request.headers.keys[i], out_request.headers.values[i]);
+    }
+
+    DEBUG_PRINT("\n\n");
+    
+    PANIC("TESTING");
 
     /*
     FDBufferReader reader = fd_buffer_reader_create(fd);

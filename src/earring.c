@@ -1,8 +1,9 @@
-#include "string.h"
+#include "earring.h"
 #include "arena.h"
 #include "stdlib.h"
+#include <stdio.h>
 
-Earring *string_create(Arena *arena, size_t max_length) {
+Earring *earring_create(Arena *arena, size_t max_length) {
     Earring *str = (Earring *)arena_alloc(arena, sizeof(Earring) + max_length * sizeof(char));
 
     if (!str) {
@@ -15,7 +16,7 @@ Earring *string_create(Arena *arena, size_t max_length) {
     return str;
 }
 
-int string_append(Earring *str, const char *suffix, size_t suffix_length) {
+int earring_append(Earring *str, const char *suffix, size_t suffix_length) {
     if (str->length + suffix_length > str->max_length) {
         return -1; // Not enough space
     }
@@ -29,7 +30,7 @@ int string_append(Earring *str, const char *suffix, size_t suffix_length) {
     return 0; // Success
 }
 
-int append_char(Earring *str, char c) {
+int earring_append_char(Earring *str, char c) {
     if (str->length + 1 > str->max_length) {
         return -1; // Not enough space
     }
@@ -40,7 +41,7 @@ int append_char(Earring *str, char c) {
     return 0; // Success
 }
 
-int string_prepend(Earring *str, const char *prefix, size_t prefix_length) {
+int earring_string_prepend(Earring *str, const char *prefix, size_t prefix_length) {
     if (str->length + prefix_length > str->max_length) {
         return -1; // Not enough space
     }
@@ -60,7 +61,7 @@ int string_prepend(Earring *str, const char *prefix, size_t prefix_length) {
     return 0; // Success
 }
 
-int string_set(Earring *str, const char *new_str, size_t new_str_length) {
+int earring_set(Earring *str, const char *new_str, size_t new_str_length) {
     if (new_str_length > str->max_length) {
         return -1; // Not enough space
     }
@@ -72,4 +73,16 @@ int string_set(Earring *str, const char *new_str, size_t new_str_length) {
     str->length = new_str_length;
 
     return 0; // Success
+}
+
+int earring_write(FILE *stream, Earring *er) {
+    if (er == NULL) {
+        return -1;
+    }
+
+    for (size_t i = 0; i < er->length; i++) {
+        fputc(er->data[i], stream);
+    }
+
+    return 0;
 }
