@@ -2,6 +2,7 @@
 #define REQUEST_H
 #include "connection.h"
 #include "earring.h"
+#include "http.h"
 
 typedef enum HttpRequestParseResult {
     HTTP_PARSE_OK = 0,
@@ -14,24 +15,12 @@ typedef enum HttpRequestParseResult {
     HTTP_PARSE_UNKNOWN_READ_ERROR,
 } HttpRequestParseResult;
 
-typedef struct HttpHeaders {
-    size_t len;
-    char **keys;
-    char **values;
-} HttpHeaders;
-
 void read_pathname_and_query_string(
     Arena *arena, 
     const char *request_target,
     char **out_pathname,
     char **out_query_string
 );
-
-int http_headers_add(HttpHeaders *headers, char *key, char *value);
-int http_headers_delete(HttpHeaders *headers, const char *key, char **deleted_value);
-int http_headers_clear(HttpHeaders *headers);
-int http_headers_find(HttpHeaders *headers, const char *key, char **out_value);
-bool http_headers_iter(HttpHeaders *headers, size_t *index, char **out_key, char **out_value);
 
 typedef struct HttpQueryParams {
     size_t len;
@@ -63,13 +52,6 @@ typedef struct HttpRequest {
     HttpHeaders headers;
     HttpQueryParams query_params;
 } HttpRequest;
-
-typedef struct HttpResponse {
-    int status_code;
-    HttpHeaders headers;
-    uint8_t *body;
-    size_t body_length;
-} HttpResponse;
 
 HttpRequest create_http_request(Arena *arena);
 HttpRequestParseResult parse_http_request(HttpConnection *connection, HttpRequest *out_request);
