@@ -5,7 +5,7 @@
 #include "request.h"
 #include "aids.h"
 #include "arena.h"
-#include "buffer.h"
+#include "fd_buffer.h"
 #include "earring.h"
 #include "http.h"
 

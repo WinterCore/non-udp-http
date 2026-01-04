@@ -1,141 +1,50 @@
 #include "buffer.h"
-#include "aids.h"
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
-#define CAPACITY 4096
 
-FDBufferReader fd_buffer_reader_create(int fd) {
-    uint8_t *buffer = malloc(sizeof(uint8_t) * CAPACITY);
+BufferWriter buffer_writer_create(char *buffer, size_t capacity) {
+    BufferWriter writer = {0};
 
-    FDBufferReader reader = {
-        .fd = fd,
-        .eof_reached = false,
-        .buffer = buffer,
-        .capacity = CAPACITY,
-        .length = 0,
-        .position = 0,
-    };
+    writer.buffer = buffer;
+    writer.capacity = capacity;
+    writer.position = 0;
 
-    return reader;
+    return writer;
 }
 
-
-int fd_buffer_reader_fill(FDBufferReader *reader) {
-    if (reader->position >= reader->length) {
-        int n = read(reader->fd, reader->buffer, reader->capacity);
-
-        if (n < 0) {
-            return -1;
-        }
-
-        if (n == 0) {
-            reader->eof_reached = true;
-            
-            return 0;
-        }
-
-        reader->length = n;
-        reader->position = 0;
+// Returns bytes written, or -1 if not enough space
+int buffer_write(BufferWriter *writer, const char *data, size_t len) {
+    if (writer->capacity - writer->position < len) {
+        return -1;
     }
-
-    return reader->length - reader->position;
-}
-
-BufferReaderReadResult fd_buffer_reader_read_until(
-    FDBufferReader *reader,
-    uint8_t *dest,
-    char *delimiter,
-    int max_bytes,
-    int *bytes_read
-) {
-    *bytes_read = 0;
-
-    if (reader->eof_reached) {
-        return -3;
-    }
-
-    int delimiter_pos = 0;
-    int delimiter_length = strlen(delimiter);
     
-    while (max_bytes > 0) {
-        // Fill buffer if empty
-        int bytes_remaining = fd_buffer_reader_fill(reader);
+    strncpy(&writer->buffer[writer->position], data, len);
+    writer->position += len;
 
-        if (bytes_remaining < 0) {
-            // Error reading from fd
-            return BUFFER_READER_READ_FD_ERROR;
-        }
-
-        if (bytes_remaining == 0) {
-            // EOF reached
-            return BUFFER_READER_READ_EOF_BEFORE_DELIMITER;
-        }
-
-        // Copy until buffer is exhausted or delimiter is found
-        for (; reader->position < reader->length && max_bytes > 0; reader->position += 1) {
-
-            dest[*bytes_read] = reader->buffer[reader->position];
-
-            *bytes_read += 1;
-            max_bytes -= 1;
-
-            if (dest[*bytes_read - 1] == delimiter[delimiter_pos]) {
-                delimiter_pos += 1;
-
-                // Delimiter found
-                if (delimiter_pos == delimiter_length) {
-                    reader->position += 1;
-
-                    *bytes_read -= delimiter_length;
-
-                    return BUFFER_READER_READ_OK;
-                }
-            } else {
-                delimiter_pos = 0;
-            }
-        }
-    }
-
-    return BUFFER_READER_READ_MAX_BYTES_EXCEEDED;
+    return len;
 }
 
-int fd_buffer_reader_read(FDBufferReader *reader, uint8_t *dest, int bytes_to_read) {
-    int bytes_read = 0;
+int buffer_write_str(BufferWriter *writer, const char *str) {
+    size_t len = strlen(str);
 
-    if (reader->eof_reached) {
-        return 0;
-    }
-
-    while (bytes_to_read > 0) {
-        // Fill buffer if empty
-        int bytes_remaining = fd_buffer_reader_fill(reader);
-
-        if (bytes_remaining < 0) {
-            // Error reading from fd
-            return -1;
-        }
-
-        if (bytes_remaining == 0) {
-            // EOF reached
-            break;
-        }
-
-        int bytes_available = reader->length - reader->position;
-        int bytes_to_copy = MIN(bytes_available, bytes_to_read);
-
-        memcpy(dest, reader->buffer + reader->position, bytes_to_copy);
-
-        reader->position += bytes_to_copy;
-        bytes_read += bytes_to_copy;
-        bytes_to_read -= bytes_to_copy;
-    }
-
-    return bytes_read;
+    return buffer_write(writer, str, len);
 }
 
+int buffer_write_char(BufferWriter *writer, char c) {
+    if (writer->capacity - writer->position < 1) {
+        return -1;
+    }
 
-void fd_buffer_reader_destroy(FDBufferReader *reader) {
-    free(reader->buffer);
+    writer->buffer[writer->position] = c;
+    writer->position += 1;
+
+    return 1;
+}
+
+int buffer_write_int_as_string(BufferWriter *writer, int value) {
+    char buf[12]; // enough for 32-bit int + sign + null
+    int digits_written = snprintf(buf, sizeof(buf), "%d", value);
+    
+    return buffer_write(writer, buf, digits_written);
 }

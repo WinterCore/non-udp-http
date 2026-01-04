@@ -8,12 +8,14 @@
 
 # MVP Featureset
 
-1. Implmenet response builder 
-2. Implement routing
-    - route definition logic
-    - route parameter parsing eg: /user/:id
-    - error codes for non existent routes
-3. Implement concurrency
+1. [x] Implmenet response builder 
+    - [x] Response head builder utils
+    - [ ] Response body builder utils
+3. [x] Implement routing
+    - [ ] route definition logic
+    - [ ] route parameter parsing eg: /user/:id
+    - [ ] error codes for non existent routes
+4. [x] Implement concurrency
 
 
 

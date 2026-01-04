@@ -1,5 +1,5 @@
 #include "connection.h"
-#include "buffer.h"
+#include "fd_buffer.h"
 
 HttpConnection create_http_connection(
     Arena *arena,

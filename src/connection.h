@@ -1,7 +1,7 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 #include "arena.h"
-#include "buffer.h"
+#include "fd_buffer.h"
 #include "response.h"
 #include <netinet/in.h>
 

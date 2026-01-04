@@ -8,16 +8,19 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+#include "buffer.h"
 #include "connection.h"
 #include "aids.h"
 #include "arena.h"
 #include "request.h"
 #include "earring.h"
+#include "response.h"
 
 #define PORT 6969
 #define BACKLOG_SIZE 10
 
 int main() {
+    /*
     int fd = open("./http_request.bin", O_RDONLY);
 
     if (!fd) {
@@ -66,8 +69,27 @@ int main() {
     }
 
     DEBUG_PRINT("\n\n");
+    */
     
-    PANIC("TESTING");
+    // Test response serializer
+
+    /*
+    char BUFFER[1024] = {0};
+    Arena *arena = arena_create();
+
+    HttpResponse response = create_http_response(arena);
+    http_response_add_header(&response, "Accept", "application/json");
+    http_response_add_header(&response, "Content-Type", "application/json");
+    http_response_add_header(&response, "Potato", "is hot");
+
+    BufferWriter writer = buffer_writer_create(BUFFER, sizeof(BUFFER));
+    int bytes_written = http_response_serialize_head(&response, &writer);
+    BUFFER[bytes_written] = '\0';
+
+    DEBUG_PRINT("%s", BUFFER);
+
+    return 0;
+    */
 
     /*
     FDBufferReader reader = fd_buffer_reader_create(fd);
@@ -113,7 +135,7 @@ int main() {
 
     DEBUG_PRINT("Server listening on port %d\n", PORT);
 
-    uint8_t buffer[80000];
+    char buffer[80000];
 
     while (1) {
         Arena *arena = arena_create();
@@ -142,16 +164,28 @@ int main() {
         // Read HTTP request (not fully implemented)
         HttpRequestParseResult request = parse_http_request(&connection, &out_request);
 
-        const char *welcome_msg = "Hello from server!\n";
+        const char *welcome_json = "{ \"message\": \"Don't come here again!\" }";
+            
+        HttpResponse response = create_http_response(arena);
+        http_response_add_header(&response, "Accept", "application/json");
+        http_response_add_header(&response, "Content-Type", "application/json");
+        size_t body_len = strlen(welcome_json);
+        char content_length[12];
+        snprintf(content_length, sizeof(content_length), "%zu", body_len);
+        http_response_add_header(&response, "Content-Length", content_length);
         
-        int bytes_written = sprintf((char *) buffer, "HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n\r\n%s", strlen(welcome_msg), welcome_msg);
+        BufferWriter writer = buffer_writer_create(buffer, sizeof(buffer));
+        int response_bytes = http_response_serialize_head(&response, &writer);
+        response_bytes += buffer_write_str(&writer, welcome_json);
 
-        if (send(client_fd, buffer, bytes_written, 0) < 0) {
+        if (send(client_fd, buffer, response_bytes, 0) < 0) {
             perror("send failed");
             
             arena_destroy(arena);
             continue;
         }
+
+        close(client_fd);
 
         arena_destroy(arena);
     }

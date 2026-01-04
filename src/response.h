@@ -1,6 +1,7 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 #include "arena.h"
+#include "buffer.h"
 #include "http.h"
 
 typedef enum HttpResponseState {
@@ -35,24 +36,24 @@ void http_response_set_status(HttpResponse *response, int status_code, const cha
  * Adds a header to the response.
  * Returns the index of the added header, or -1 on failure.
  */
-int http_response_add_header(HttpResponse *response, const char *name, const char *value);
+int http_response_add_header(HttpResponse *response, const char *key, const char *value);
 
 /**
  * Serialize the status line (e.g., "HTTP/1.1 200 OK\r\n") into buffer.
  * Returns bytes written, or -1 if buffer too small.
  */
-int http_response_serialize_status_line(HttpResponse *response, char *buffer, size_t buffer_size);
+int http_response_serialize_status_line(HttpResponse *response, BufferWriter *writer);
 
 /**
  * Serialize all headers into buffer (each header ends with \r\n).
  * Returns bytes written, or -1 if buffer too small.
  */
-int http_response_serialize_headers(HttpResponse *response, char *buffer, size_t buffer_size);
+int http_response_serialize_headers(HttpResponse *response, BufferWriter *writer);
 
 /**
  * Serialize status line and headers into buffer (ends with \r\n\r\n).
  * Returns bytes written, or -1 if buffer too small.
  */
-int http_response_serialize_head(HttpResponse *response, char *buffer, size_t buffer_size);
+int http_response_serialize_head(HttpResponse *response, BufferWriter *writer);
 
 #endif
